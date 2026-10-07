@@ -42,13 +42,14 @@ jobs:
       - name: SAM Build
         run: sam build --template infra/template.yaml --no-cached
 
-      # ── 6. SAM Deploy ─────────────────────────────────────────────────────
-      # --config-file /dev/null prevents SAM from reading any auto-generated
-      # samconfig.toml which would override --capabilities with null.
+      # ── 6. Delete any samconfig.toml so SAM reads only CLI flags ─────────
+      - name: Remove samconfig if present
+        run: rm -f samconfig.toml
+
+      # ── 7. SAM Deploy ─────────────────────────────────────────────────────
       - name: SAM Deploy
         run: |
           sam deploy \
-            --config-file /dev/null \
             --stack-name restaurant-app \
             --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -56,7 +57,7 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
 
-      # ── 7. Read CloudFormation outputs ────────────────────────────────────
+      # ── 8. Read CloudFormation outputs ────────────────────────────────────
       - name: Read CloudFormation outputs
         id: cfn
         run: |
