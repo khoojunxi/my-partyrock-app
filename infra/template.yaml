@@ -3,15 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: Restaurant Menu AI — Lambda + S3 static site
 
 # ────────────────────────────────────────────
-#  Parameters
-# ────────────────────────────────────────────
-Parameters:
-  AccountId:
-    Type: String
-    Default: !Sub "${AWS::AccountId}"
-    # resolved at deploy time via !Sub below
-
-# ────────────────────────────────────────────
 #  Globals
 # ────────────────────────────────────────────
 Globals:
@@ -60,7 +51,7 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource:
-                  # Global cross-region inference profile (routes ap-southeast-1 / us-east-2 / us-west-2)
+                  # Global cross-region inference profile (routes ap-southeast-2 / us-east-2 / us-west-2)
                   - "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
                   - "arn:aws:bedrock:*:*:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"
                   # Wildcard catch-all for any region the global profile may route to
