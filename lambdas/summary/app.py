@@ -18,7 +18,7 @@ from flask import Flask, Response, request, stream_with_context
 
 app = Flask(__name__)
 
-BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "ap-southeast-1")
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "ap-southeast-2")
 MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 bedrock = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
