@@ -47,6 +47,48 @@ jobs:
             --region ap-southeast-2 \
             --output-template-file packaged.yaml
 
+      - name: Wait for stack to be ready
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name restaurant-app \
+            --region ap-southeast-2 \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          echo "Current stack status: $STATUS"
+
+          # If stack is mid-operation, wait for it to finish
+          if [[ "$STATUS" == *"IN_PROGRESS"* ]]; then
+            echo "Stack is in progress, waiting up to 10 minutes..."
+            aws cloudformation wait stack-create-complete \
+              --stack-name restaurant-app \
+              --region ap-southeast-2 2>/dev/null || true
+            aws cloudformation wait stack-update-complete \
+              --stack-name restaurant-app \
+              --region ap-southeast-2 2>/dev/null || true
+          fi
+
+          # Re-check status after waiting
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name restaurant-app \
+            --region ap-southeast-2 \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          echo "Stack status after wait: $STATUS"
+
+          # Delete the stack if it is in an unrecoverable failed state
+          if [[ "$STATUS" == "ROLLBACK_COMPLETE" || "$STATUS" == "ROLLBACK_FAILED" || "$STATUS" == "CREATE_FAILED" || "$STATUS" == "DELETE_FAILED" ]]; then
+            echo "Stack is in failed state ($STATUS). Deleting and waiting..."
+            aws cloudformation delete-stack \
+              --stack-name restaurant-app \
+              --region ap-southeast-2
+            aws cloudformation wait stack-delete-complete \
+              --stack-name restaurant-app \
+              --region ap-southeast-2
+            echo "Stack deleted. Deploy will create a fresh stack."
+          fi
+
       - name: CloudFormation Deploy
         run: |
           aws cloudformation deploy \
