@@ -46,27 +46,13 @@ jobs:
       - name: SAM Build
         run: sam build --template infra/template.yaml
 
-      # ── 6. SAM package  (produces packaged.yaml with S3 URIs) ───────────
-      # We package separately so we can pass the output template directly to
-      # `aws cloudformation deploy`, which has a proper --capabilities flag
-      # that cannot be overridden by samconfig.toml.
+      # ── 6. SAM package (produces packaged.yaml with S3 URIs) ────────────
       - name: SAM Package
-        run: |
-          sam package \
-            --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} \
-            --s3-prefix restaurant-app \
-            --region ${{ env.REGION }} \
-            --output-template-file packaged.yaml
+        run: sam package --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} --s3-prefix restaurant-app --region ${{ env.REGION }} --output-template-file packaged.yaml
 
-      # ── 7. CloudFormation deploy ────────────────────────────────────────
+      # ── 7. CloudFormation deploy ─────────────────────────────────────────
       - name: CloudFormation Deploy
-        run: |
-          aws cloudformation deploy \
-            --template-file packaged.yaml \
-            --stack-name ${{ env.STACK_NAME }} \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --region ${{ env.REGION }} \
-            --no-fail-on-empty-changeset
+        run: aws cloudformation deploy --template-file packaged.yaml --stack-name ${{ env.STACK_NAME }} --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --region ${{ env.REGION }} --no-fail-on-empty-changeset
 
       # ── 8. Read stack outputs ────────────────────────────────────────────
       - name: Read CloudFormation outputs
