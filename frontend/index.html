@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurant Menu AI</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #f59e0b;
+      --accent2: #ef4444;
+      --text: #f0f0f5;
+      --text-muted: #8888a8;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,.45);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a0a00 0%, #2d1500 50%, #1a0a00 100%);
+      border-bottom: 2px solid var(--accent);
+      padding: 28px 24px 22px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, var(--accent), #fcd34d, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: .95rem;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 0;
+      display: grid;
+      gap: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: #3e3e5e; }
+    .card-title {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .badge {
+      background: var(--accent);
+      color: #000;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: .6rem;
+    }
+
+    /* ── Inputs ── */
+    label {
+      display: block;
+      font-size: .8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .95rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+    }
+    textarea { resize: vertical; min-height: 120px; }
+    select option { background: var(--surface2); }
+
+    /* ── Two-col grid for translator ── */
+    .translator-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) { .translator-grid { grid-template-columns: 1fr; } }
+
+    /* ── Output panels ── */
+    .output-panel {
+      height: 340px;
+      overflow-y: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: .9rem;
+      line-height: 1.65;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .output-panel::-webkit-scrollbar { width: 5px; }
+    .output-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+    /* ── Markdown rendering ── */
+    .md-line { display: block; animation: fadeIn .2s ease forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    .md-h1 { font-size: 1.4em; font-weight: 800; color: var(--accent); margin: .4em 0 .2em; }
+    .md-h2 { font-size: 1.2em; font-weight: 700; color: var(--accent); margin: .4em 0 .2em; }
+    .md-h3 { font-size: 1.05em; font-weight: 700; color: #fcd34d; margin: .3em 0 .1em; }
+    .md-hr  { border: none; border-top: 1px solid var(--border); margin: .6em 0; }
+    .md-li  { padding-left: 1.2em; position: relative; }
+    .md-li::before { content: '•'; position: absolute; left: 0; color: var(--accent); }
+    .md-numli { padding-left: 1.6em; position: relative; }
+    .md-code-inline { background: #2a2a3a; border-radius: 4px; padding: 1px 5px; font-family: monospace; font-size: .85em; }
+
+    /* ── Blinking cursor ── */
+    .cursor {
+      display: inline-block;
+      width: 2px; height: 1em;
+      background: var(--accent);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink .7s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Spinner ── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: .85rem;
+      padding: 8px 0;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-msg {
+      color: var(--accent2);
+      font-size: .85rem;
+      padding: 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Run All button ── */
+    .run-all-wrap {
+      text-align: center;
+      margin-top: 8px;
+    }
+    .btn-run-all {
+      background: linear-gradient(135deg, var(--accent), #f97316);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 40px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: .5px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(245,158,11,.35);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn-run-all:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(245,158,11,.5); }
+    .btn-run-all:active { transform: translateY(0); }
+
+    /* ── Currency grid ── */
+    .currency-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      gap: 12px;
+    }
+    .currency-arrow {
+      font-size: 1.4rem;
+      padding-bottom: 10px;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    /* ── File upload zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(245,158,11,.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-zone .dz-icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone .dz-text { color: var(--text-muted); font-size: .88rem; }
+    .drop-zone .dz-filename { color: var(--accent); font-size: .85rem; margin-top: 6px; font-weight: 600; }
+
+    /* ── Section divider label ── */
+    .section-label {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🍽️ Restaurant Menu AI</h1>
+  <p>Translate menus · Generate images · Summarise documents · Convert currency</p>
+</header>
+
+<div class="container">
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 1 — Menu Translator
+  ════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">🌐 Menu Translator <span class="badge">MAIN FEATURE</span></div>
+
+    <div class="translator-grid">
+      <!-- Widget 1 — Source Language -->
+      <div>
+        <label for="srcLang">Source Language</label>
+        <input type="text" id="srcLang" placeholder="e.g. French, Japanese, Arabic…" />
+      </div>
+
+      <!-- Widget 2 — Output Language (static dropdown) -->
+      <div>
+        <label for="outLang">Output Language</label>
+        <select id="outLang">
+          <option value="English">English</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Malay">Malay</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Widget 3 — Menu Items -->
+    <div style="margin-top:16px;">
+      <label for="menuItems">Menu Items</label>
+      <textarea id="menuItems" placeholder="Paste your full menu text here — dish names, descriptions, prices…"></textarea>
+    </div>
+
+    <!-- Translated Menu output -->
+    <div class="section-label">Translated Menu</div>
+    <div class="output-panel" id="out-translator"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 2 — Image Generator (Widget 4)
+  ════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">🎨 Image Generator <span class="badge">AI</span></div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;">
+      Automatically generates a vivid image description / scene based on your menu items.
+    </p>
+    <div class="output-panel" id="out-image"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 3 — File Upload + Summary (Widgets 5 & 6)
+  ════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">📄 File Upload &amp; Summary <span class="badge">AI</span></div>
+
+    <!-- Widget 5 — File upload -->
+    <label>Upload Document or Image</label>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput"
+             accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.pptx,.csv,.json,.html,image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,application/json,text/html" />
+      <div class="dz-icon">📂</div>
+      <div class="dz-text">Drag &amp; drop a file here, or click to browse<br/>
+        <small>JPG · PNG · WEBP · PDF · DOCX · PPTX · CSV · JSON · HTML</small>
+      </div>
+      <div class="dz-filename" id="fileName">No file selected</div>
+    </div>
+
+    <!-- Widget 6 — Summary output -->
+    <div class="section-label">Document Summary</div>
+    <div class="output-panel" id="out-summary"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 4 — Currency Converter (MYR → USD)
+  ════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">💱 Currency Converter</div>
+    <div class="currency-grid">
+      <div>
+        <label for="myrInput">MYR (Malaysian Ringgit)</label>
+        <input type="number" id="myrInput" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div class="currency-arrow">→</div>
+      <div>
+        <label for="usdOutput">USD (US Dollar)</label>
+        <input type="number" id="usdOutput" placeholder="0.00" readonly
+               style="background:var(--bg);cursor:default;color:var(--accent);font-weight:700;" />
+      </div>
+    </div>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:10px;">
+      Exchange rate: 1 MYR ≈ 0.2273 USD (approximate — update as needed)
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       RUN ALL
+  ════════════════════════════════════════════ -->
+  <div class="run-all-wrap">
+    <button class="btn-run-all" id="btnRunAll">⚡ Run All AI Features</button>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════════════════════════
+     JavaScript
+════════════════════════════════════════════════ -->
+<script>
+// ── URL placeholders — replaced by GitHub Actions sed ──
+const STREAM_URLS = {
+  image:   '__URL_IMAGE__',
+  summary: '__URL_SUMMARY__',
+};
+
+// ── MYR → USD live conversion ──
+const MYR_TO_USD = 0.2273;
+document.getElementById('myrInput').addEventListener('input', function () {
+  const val = parseFloat(this.value);
+  document.getElementById('usdOutput').value =
+    isNaN(val) ? '' : (val * MYR_TO_USD).toFixed(2);
+});
+
+// ── File upload state ──
+let uploadedFileData = null;  // raw base64 (no prefix)
+let uploadedFileMime = null;
+
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName  = document.getElementById('fileName');
+
+function handleFile(file) {
+  if (!file) return;
+  fileName.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;            // "data:<mime>;base64,<data>"
+    const commaIdx = dataUrl.indexOf(',');
+    uploadedFileMime = file.type || 'application/octet-stream';
+    uploadedFileData = dataUrl.substring(commaIdx + 1); // raw base64 only
+  };
+  reader.readAsDataURL(file);
+}
+
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ── Markdown line renderer ──
+function renderMdLine(text) {
+  // Escape HTML first
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // HR
+  if (/^---+$/.test(text.trim())) {
+    const hr = document.createElement('hr');
+    hr.className = 'md-hr md-line';
+    return hr;
+  }
+
+  const span = document.createElement('span');
+  span.className = 'md-line';
+
+  let cls = '';
+  let content = text;
+
+  if (/^### /.test(text))      { cls = 'md-h3'; content = text.slice(4); }
+  else if (/^## /.test(text))  { cls = 'md-h2'; content = text.slice(3); }
+  else if (/^# /.test(text))   { cls = 'md-h1'; content = text.slice(2); }
+  else if (/^[-*] /.test(text)){ cls = 'md-li'; content = text.slice(2); }
+  else if (/^\d+\. /.test(text)){ cls = 'md-numli'; content = text.replace(/^\d+\. /, ''); }
+
+  if (cls) span.classList.add(cls);
+
+  // Inline: **bold**, *italic*, `code`
+  content = esc(content)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/`(.+?)`/g,       '<code class="md-code-inline">$1</code>');
+
+  span.innerHTML = content + '<br/>';
+  return span;
+}
+
+// ── Stream a Lambda Function URL ──
+async function streamPanel(panelId, url, body) {
+  const panel = document.getElementById(panelId);
+  panel.innerHTML = '';
+
+  // Show spinner
+  const spinWrap = document.createElement('div');
+  spinWrap.className = 'spinner-wrap';
+  spinWrap.innerHTML = '<div class="spinner"></div><span>Generating…</span>';
+  panel.appendChild(spinWrap);
+
+  // Cursor element
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText}`);
+    }
+
+    // Remove spinner once headers arrive
+    spinWrap.remove();
+    panel.appendChild(cursor);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Flush complete lines
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // last (possibly incomplete) line stays in buffer
+
+      for (const line of lines) {
+        cursor.remove();
+        const el = renderMdLine(line);
+        panel.appendChild(el);
+        panel.scrollTop = panel.scrollHeight;
+        panel.appendChild(cursor);
+      }
+    }
+
+    // Flush remainder
+    if (buffer.trim()) {
+      cursor.remove();
+      panel.appendChild(renderMdLine(buffer));
+    } else {
+      cursor.remove();
+    }
+
+    panel.scrollTop = panel.scrollHeight;
+
+  } catch (err) {
+    spinWrap.remove();
+    cursor.remove();
+    const errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = '⚠️ ' + err.message;
+    panel.appendChild(errDiv);
+  }
+}
+
+// ── Built-in translator (no Lambda needed — uses browser logic) ──
+// Calls the IMAGE lambda with a translate prompt so we get AI translation.
+function runTranslator() {
+  const src  = document.getElementById('srcLang').value.trim() || 'the original language';
+  const tgt  = document.getElementById('outLang').value;
+  const menu = document.getElementById('menuItems').value.trim();
+  if (!menu) {
+    document.getElementById('out-translator').innerHTML =
+      '<div class="error-msg">⚠️ Please enter menu items first.</div>';
+    return;
+  }
+  const prompt = `You are a professional menu translator. Translate the following menu from ${src} to ${tgt}. Preserve dish names (transliterated if needed), descriptions, and prices. Format the output clearly.\n\nMENU:\n${menu}`;
+  streamPanel('out-translator', STREAM_URLS.image, { prompt });
+}
+
+// ── Image generator ──
+function runImage() {
+  const menu = document.getElementById('menuItems').value.trim();
+  if (!menu) return;
+  const prompt = `generated interesting menu\n\nMenu items:\n${menu}`;
+  streamPanel('out-image', STREAM_URLS.image, { prompt });
+}
+
+// ── Summary ──
+function runSummary() {
+  const body = { prompt: 'write the conclusion of the generated menu' };
+  if (uploadedFileData) {
+    body.file_data = uploadedFileData;
+    body.file_mime = uploadedFileMime;
+  }
+  streamPanel('out-summary', STREAM_URLS.summary, body);
+}
+
+// ── Run All ──
+document.getElementById('btnRunAll').addEventListener('click', () => {
+  runTranslator();
+  runImage();
+  runSummary();
+});
+
+// ── Auto-run translator + image when menu items change (debounced) ──
+let debTimer;
+document.getElementById('menuItems').addEventListener('input', () => {
+  clearTimeout(debTimer);
+  debTimer = setTimeout(() => {
+    runTranslator();
+    runImage();
+  }, 1200);
+});
+</script>
+</body>
+</html>
